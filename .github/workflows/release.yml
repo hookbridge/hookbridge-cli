@@ -66,3 +66,68 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
+
+      - name: Update Homebrew formula
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          TAG=${GITHUB_REF#refs/tags/}
+
+          darwin_arm64_sha=$(grep "darwin_arm64.tar.gz" dist/checksums.txt | awk '{print $1}')
+          darwin_amd64_sha=$(grep "darwin_amd64.tar.gz" dist/checksums.txt | awk '{print $1}')
+          linux_arm64_sha=$(grep "linux_arm64.tar.gz" dist/checksums.txt | awk '{print $1}')
+          linux_amd64_sha=$(grep "linux_amd64.tar.gz" dist/checksums.txt | awk '{print $1}')
+
+          cat > /tmp/hb.rb << FORMULA
+          class Hb < Formula
+            desc "CLI tool for receiving webhooks locally during development"
+            homepage "https://github.com/hookbridge/hookbridge-cli"
+            version "${VERSION}"
+            license "Apache-2.0"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/hookbridge/hookbridge-cli/releases/download/${TAG}/hb_${TAG}_darwin_arm64.tar.gz"
+                sha256 "${darwin_arm64_sha}"
+              end
+
+              on_intel do
+                url "https://github.com/hookbridge/hookbridge-cli/releases/download/${TAG}/hb_${TAG}_darwin_amd64.tar.gz"
+                sha256 "${darwin_amd64_sha}"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "https://github.com/hookbridge/hookbridge-cli/releases/download/${TAG}/hb_${TAG}_linux_arm64.tar.gz"
+                sha256 "${linux_arm64_sha}"
+              end
+
+              on_intel do
+                url "https://github.com/hookbridge/hookbridge-cli/releases/download/${TAG}/hb_${TAG}_linux_amd64.tar.gz"
+                sha256 "${linux_amd64_sha}"
+              end
+            end
+
+            def install
+              bin.install "hb"
+            end
+
+            test do
+              assert_match "hb version v#{version}", shell_output("#{bin}/hb version")
+            end
+          end
+          FORMULA
+
+          # Remove leading whitespace from heredoc
+          sed -i 's/^          //' /tmp/hb.rb
+
+          git clone https://x-access-token:${GH_TOKEN}@github.com/hookbridge/homebrew-tap.git /tmp/homebrew-tap
+          cp /tmp/hb.rb /tmp/homebrew-tap/Formula/hb.rb
+          cd /tmp/homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/hb.rb
+          git commit -m "Update hb to ${TAG}"
+          git push
