@@ -27,7 +27,7 @@ func setupTestHome(t *testing.T) string {
 
 func projectResponse(id, name string) map[string]any {
 	return map[string]any{
-		"data": map[string]any{"id": id, "name": name},
+		"data": []map[string]any{{"id": id, "label": name}},
 	}
 }
 
@@ -39,7 +39,7 @@ func endpointCreatedResponse(id, name, mode, receiveURL string) map[string]any {
 	return map[string]any{
 		"data": map[string]any{
 			"id": id, "name": name, "mode": mode,
-			"active": true, "receive_url": receiveURL,
+			"active": true, "ingest_url": receiveURL,
 		},
 	}
 }
@@ -70,7 +70,6 @@ func TestLogin_ValidKey_StoresCredentials(t *testing.T) {
 	cfg, err := config.Load()
 	require.NoError(t, err)
 	assert.Equal(t, "hb_live_validkey", cfg.APIKey)
-	assert.Equal(t, "proj_123", cfg.ProjectID)
 
 	// Verify config file exists with correct permissions
 	cfgPath := filepath.Join(home, ".hookbridge", "config.json")
@@ -339,7 +338,7 @@ func runListenCmd(ctx context.Context, args ...string) chan error {
 func cliEndpoint() map[string]any {
 	return map[string]any{
 		"id": "ie_1", "name": "CLI EP", "mode": "cli",
-		"active": true, "receive_url": "https://receive.hookbridge.io/v1/webhooks/receive/ie_1/sk_abc",
+		"active": true, "ingest_url": "https://receive.hookbridge.io/v1/webhooks/receive/ie_1/sk_abc",
 	}
 }
 

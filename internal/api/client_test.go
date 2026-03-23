@@ -15,7 +15,7 @@ func TestClient_AddsAuthorizationHeader(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedAuth = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"id": "proj_1", "name": "test"}})
+		json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{{"id": "key_1", "label": "default"}}})
 	}))
 	defer server.Close()
 
@@ -27,13 +27,12 @@ func TestClient_AddsAuthorizationHeader(t *testing.T) {
 
 func TestClient_GetProject_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/v1/projects", r.URL.Path)
+		assert.Equal(t, "/v1/api-keys", r.URL.Path)
 		assert.Equal(t, http.MethodGet, r.Method)
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
-			"data": map[string]any{
-				"id":   "proj_abc",
-				"name": "My App",
+			"data": []map[string]any{
+				{"id": "key_1", "label": "default"},
 			},
 		})
 	}))
@@ -42,8 +41,7 @@ func TestClient_GetProject_Success(t *testing.T) {
 	client := NewClient(server.URL, "hb_live_key")
 	project, err := client.GetProject()
 	require.NoError(t, err)
-	assert.Equal(t, "proj_abc", project.ID)
-	assert.Equal(t, "My App", project.Name)
+	assert.Equal(t, "authenticated", project.Name)
 }
 
 func TestClient_GetProject_Unauthorized(t *testing.T) {
@@ -82,8 +80,8 @@ func TestClient_ListInboundEndpoints_Success(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
 			"data": []map[string]any{
-				{"id": "ie_1", "name": "Stripe", "mode": "cli", "active": true, "receive_url": "https://receive.hookbridge.io/v1/webhooks/receive/ie_1/secret1"},
-				{"id": "ie_2", "name": "GitHub", "mode": "forward", "active": true, "receive_url": "https://receive.hookbridge.io/v1/webhooks/receive/ie_2/secret2"},
+				{"id": "ie_1", "name": "Stripe", "mode": "cli", "active": true, "ingest_url": "https://receive.hookbridge.io/v1/webhooks/receive/ie_1/secret1"},
+				{"id": "ie_2", "name": "GitHub", "mode": "forward", "active": true, "ingest_url": "https://receive.hookbridge.io/v1/webhooks/receive/ie_2/secret2"},
 			},
 		})
 	}))
@@ -116,7 +114,7 @@ func TestClient_CreateInboundEndpoint_Success(t *testing.T) {
 				"name":        "Test Endpoint",
 				"mode":        "cli",
 				"active":      true,
-				"receive_url": "https://receive.hookbridge.io/v1/webhooks/receive/ie_new/secret_new",
+				"ingest_url": "https://receive.hookbridge.io/v1/webhooks/receive/ie_new/secret_new",
 			},
 		})
 	}))

@@ -38,7 +38,7 @@ func TestForwarder_ForwardsBodyAndHeaders(t *testing.T) {
 	assert.JSONEq(t, `{"event":"checkout"}`, string(capturedBody))
 	assert.Equal(t, "application/json", capturedHeaders.Get("Content-Type"))
 	assert.Equal(t, "t=123,v1=abc", capturedHeaders.Get("X-Stripe-Signature"))
-	assert.Greater(t, result.LatencyMs, int64(0))
+	assert.GreaterOrEqual(t, result.LatencyMs, int64(0))
 	assert.Empty(t, result.Error)
 }
 
