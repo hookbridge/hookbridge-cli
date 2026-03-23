@@ -1,10 +1,13 @@
 package listener
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -111,6 +114,60 @@ func TestPoller_ForwardsToLocalServer(t *testing.T) {
 
 	require.NotEmpty(t, receivedBody)
 	assert.Contains(t, string(receivedBody), "forwarded")
+}
+
+func TestPoller_VerboseOutput(t *testing.T) {
+	// Capture stdout to verify verbose output
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	callCount := atomic.Int32{}
+	apiServer := httptest.NewServer(http.HandlerFunc(func(wr http.ResponseWriter, req *http.Request) {
+		n := callCount.Add(1)
+		if n == 1 {
+			wr.WriteHeader(http.StatusOK)
+			json.NewEncoder(wr).Encode(map[string]any{
+				"data": []map[string]any{
+					{
+						"message_id":   "msg_verbose",
+						"content_type": "application/json",
+						"headers":      map[string]string{"x-custom-header": "test-header-value"},
+						"body":         map[string]any{"verbose_key": "verbose_val"},
+						"size_bytes":   30,
+						"received_at":  "2026-03-21T10:30:00Z",
+					},
+				},
+				"meta": map[string]any{"next_cursor": "msg_verbose"},
+			})
+		} else {
+			wr.WriteHeader(http.StatusOK)
+			json.NewEncoder(wr).Encode(map[string]any{
+				"data": []any{},
+				"meta": map[string]any{"next_cursor": nil},
+			})
+		}
+	}))
+	defer apiServer.Close()
+
+	client := api.NewClient(apiServer.URL, "hb_live_key")
+	poller := NewPoller(client, "ie_1", nil, true) // verbose=true
+
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	_ = poller.Run(ctx)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	assert.Contains(t, output, "Headers:")
+	assert.Contains(t, output, "x-custom-header: test-header-value")
+	assert.Contains(t, output, "Body:")
+	assert.Contains(t, output, "verbose_key")
 }
 
 func TestPoller_ContinuesOnPollError(t *testing.T) {

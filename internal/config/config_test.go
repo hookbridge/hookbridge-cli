@@ -128,3 +128,48 @@ func TestConfig_Stream_DefaultsWhenEmpty(t *testing.T) {
 	cfg := &Config{}
 	assert.Equal(t, DefaultStreamURL, cfg.Stream())
 }
+
+func TestConfig_APIBase_EnvVarOverridesConfigFile(t *testing.T) {
+	t.Setenv("HB_API_URL", "https://api.testing.example.com")
+	cfg := &Config{APIBaseURL: "https://custom.api.com"}
+	assert.Equal(t, "https://api.testing.example.com", cfg.APIBase())
+}
+
+func TestConfig_Stream_EnvVarOverridesConfigFile(t *testing.T) {
+	t.Setenv("HB_STREAM_URL", "wss://stream.testing.example.com")
+	cfg := &Config{StreamURL: "wss://custom.stream.com"}
+	assert.Equal(t, "wss://stream.testing.example.com", cfg.Stream())
+}
+
+func TestConfig_APIBase_EnvVarOverridesDefault(t *testing.T) {
+	t.Setenv("HB_API_URL", "https://api.testing.example.com")
+	cfg := &Config{}
+	assert.Equal(t, "https://api.testing.example.com", cfg.APIBase())
+}
+
+func TestConfig_Stream_EnvVarOverridesDefault(t *testing.T) {
+	t.Setenv("HB_STREAM_URL", "wss://stream.testing.example.com")
+	cfg := &Config{}
+	assert.Equal(t, "wss://stream.testing.example.com", cfg.Stream())
+}
+
+func TestLoad_EnvVarAPIKeyOverridesConfigFile(t *testing.T) {
+	setupTestHome(t)
+
+	require.NoError(t, Save(&Config{APIKey: "hb_live_fromfile", ProjectID: "proj_1"}))
+
+	t.Setenv("HB_API_KEY", "hb_live_fromenv")
+	loaded, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, "hb_live_fromenv", loaded.APIKey)
+}
+
+func TestLoad_EnvVarAPIKeyNotSetUsesConfigFile(t *testing.T) {
+	setupTestHome(t)
+
+	require.NoError(t, Save(&Config{APIKey: "hb_live_fromfile", ProjectID: "proj_1"}))
+
+	loaded, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, "hb_live_fromfile", loaded.APIKey)
+}

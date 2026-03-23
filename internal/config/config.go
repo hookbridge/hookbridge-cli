@@ -51,6 +51,10 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("could not parse config: %w", err)
 	}
 
+	if v := os.Getenv("HB_API_KEY"); v != "" {
+		cfg.APIKey = v
+	}
+
 	return &cfg, nil
 }
 
@@ -92,16 +96,22 @@ func Remove() error {
 	return nil
 }
 
-// APIBase returns the API base URL, falling back to the default.
+// APIBase returns the API base URL. Precedence: HB_API_URL env var > config file > default.
 func (c *Config) APIBase() string {
+	if v := os.Getenv("HB_API_URL"); v != "" {
+		return v
+	}
 	if c.APIBaseURL != "" {
 		return c.APIBaseURL
 	}
 	return DefaultAPIBaseURL
 }
 
-// Stream returns the stream URL, falling back to the default.
+// Stream returns the stream URL. Precedence: HB_STREAM_URL env var > config file > default.
 func (c *Config) Stream() string {
+	if v := os.Getenv("HB_STREAM_URL"); v != "" {
+		return v
+	}
 	if c.StreamURL != "" {
 		return c.StreamURL
 	}

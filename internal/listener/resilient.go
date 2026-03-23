@@ -16,28 +16,31 @@ import (
 
 // ResilientListener tries WebSocket first, falls back to polling on failure.
 type ResilientListener struct {
-	streamURL    string
-	apiKey       string
-	endpointID   string
-	apiClient    *api.Client
-	forwarder    *forwarder.Forwarder
-	verbose      bool
-	wsMaxRetries int
-	wsBaseBackoff time.Duration
-	count        int
+	streamURL       string
+	apiKey          string
+	endpointID      string
+	apiClient       *api.Client
+	forwarder       *forwarder.Forwarder
+	verbose         bool
+	wsMaxRetries    int
+	wsBaseBackoff   time.Duration
+	wsRetryInterval time.Duration
+	count           int
+	onMessage       func(msg *api.ListenMessage, displaySize int) // optional test hook
 }
 
 // NewResilientListener creates a listener that prefers WebSocket with polling fallback.
 func NewResilientListener(streamURL, apiKey, endpointID string, apiClient *api.Client, fwd *forwarder.Forwarder, verbose bool) *ResilientListener {
 	return &ResilientListener{
-		streamURL:    streamURL,
-		apiKey:       apiKey,
-		endpointID:   endpointID,
-		apiClient:    apiClient,
-		forwarder:    fwd,
-		verbose:      verbose,
-		wsMaxRetries: 3,
-		wsBaseBackoff: 1 * time.Second,
+		streamURL:       streamURL,
+		apiKey:          apiKey,
+		endpointID:      endpointID,
+		apiClient:       apiClient,
+		forwarder:       fwd,
+		verbose:         verbose,
+		wsMaxRetries:    3,
+		wsBaseBackoff:   1 * time.Second,
+		wsRetryInterval: 60 * time.Second,
 	}
 }
 
@@ -119,11 +122,46 @@ func (rl *ResilientListener) runWebSocket(ctx context.Context, ws *WSClient) err
 
 func (rl *ResilientListener) runPolling(ctx context.Context) error {
 	poller := NewPoller(rl.apiClient, rl.endpointID, rl.forwarder, rl.verbose)
-	return poller.Run(ctx)
+
+	pollerCtx, pollerCancel := context.WithCancel(ctx)
+	defer pollerCancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- poller.Run(pollerCtx)
+	}()
+
+	ticker := time.NewTicker(rl.wsRetryInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case err := <-errCh:
+			return err
+		case <-ticker.C:
+			ws := NewWSClient(rl.streamURL, rl.apiKey, rl.endpointID)
+			if err := ws.Connect(); err == nil {
+				fmt.Fprintln(os.Stderr, "WebSocket reconnected, switching from polling")
+				pollerCancel()
+				<-errCh
+				return rl.runWebSocket(ctx, ws)
+			}
+		case <-ctx.Done():
+			pollerCancel()
+			<-errCh
+			return nil
+		}
+	}
 }
 
 func (rl *ResilientListener) handleWSMessage(ws *WSClient, msg *api.ListenMessage) {
 	now := time.Now().Format("15:04:05")
+
+	// Compute display size: use SizeBytes if provided (polling), otherwise derive from body
+	displaySize := msg.SizeBytes
+	if displaySize == 0 {
+		displaySize = len(msg.Body)
+	}
 
 	var result *forwarder.Result
 	if rl.forwarder != nil {
@@ -145,6 +183,10 @@ func (rl *ResilientListener) handleWSMessage(ws *WSClient, msg *api.ListenMessag
 		}
 	}
 
+	if rl.onMessage != nil {
+		rl.onMessage(msg, displaySize)
+	}
+
 	// Print log line
 	if result != nil {
 		if result.Error != "" {
@@ -153,10 +195,10 @@ func (rl *ResilientListener) handleWSMessage(ws *WSClient, msg *api.ListenMessag
 			color := statusColor(result.StatusCode)
 			fmt.Printf("%s  POST  →  %s%d\033[0m  %dms  %s  (%d bytes)\n",
 				now, color, result.StatusCode, result.LatencyMs,
-				msg.ContentType, msg.SizeBytes)
+				msg.ContentType, displaySize)
 		}
 	} else {
-		fmt.Printf("%s  POST  %s  (%d bytes)\n", now, msg.ContentType, msg.SizeBytes)
+		fmt.Printf("%s  POST  %s  (%d bytes)\n", now, msg.ContentType, displaySize)
 	}
 
 	if rl.verbose {

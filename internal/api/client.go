@@ -29,7 +29,7 @@ type InboundEndpoint struct {
 	Name       string `json:"name"`
 	Mode       string `json:"mode"`
 	Active     bool   `json:"active"`
-	ReceiveURL string `json:"receive_url"`
+	ReceiveURL string `json:"ingest_url"`
 }
 
 // ListenMessage represents a webhook message from the listen endpoint.
@@ -61,14 +61,17 @@ func NewClient(baseURL, apiKey string) *Client {
 }
 
 // GetProject verifies the API key and returns the project details.
+// Uses GET /v1/api-keys which accepts API key auth (unlike /v1/projects which is Kratos-only).
 func (c *Client) GetProject() (*Project, error) {
 	var resp struct {
-		Data Project `json:"data"`
+		Data []any `json:"data"`
 	}
-	if err := c.doJSON(http.MethodGet, "/v1/projects", nil, &resp); err != nil {
+	if err := c.doJSON(http.MethodGet, "/v1/api-keys", nil, &resp); err != nil {
 		return nil, err
 	}
-	return &resp.Data, nil
+	// API key auth succeeded — we don't get project details from this endpoint,
+	// but the key is verified. Return a placeholder project.
+	return &Project{Name: "authenticated"}, nil
 }
 
 // ListInboundEndpoints returns all inbound endpoints for the project.

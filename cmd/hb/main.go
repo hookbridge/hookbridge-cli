@@ -71,10 +71,11 @@ func loginCmd() *cobra.Command {
 
 			// Load existing config for custom base URL, or use defaults
 			existing, _ := config.Load()
-			baseURL := config.DefaultAPIBaseURL
-			if existing != nil && existing.APIBaseURL != "" {
-				baseURL = existing.APIBaseURL
+			tmpCfg := &config.Config{}
+			if existing != nil {
+				tmpCfg = existing
 			}
+			baseURL := tmpCfg.APIBase()
 
 			fmt.Print("Verifying... ")
 			client := api.NewClient(baseURL, key)
@@ -286,7 +287,7 @@ func listenCmd() *cobra.Command {
 
 			// Start resilient listener (WebSocket primary, polling fallback)
 			rl := listener.NewResilientListener(
-				cfg.Stream()+"/v1/listen",
+				cfg.Stream(),
 				cfg.APIKey,
 				endpoint.ID,
 				client,
