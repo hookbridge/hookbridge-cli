@@ -128,6 +128,10 @@ jobs:
           cd /tmp/homebrew-tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "update-hb-${TAG}"
           git add Formula/hb.rb
           git commit -m "Update hb to ${TAG}"
-          git push
+          git push -u origin "update-hb-${TAG}"
+          GH_TOKEN=${GH_TOKEN} gh pr create \
+            --title "Update hb to ${TAG}" \
+            --body "Automated PR from hookbridge-cli release workflow. Updates the Homebrew formula to ${TAG} with new checksums."
