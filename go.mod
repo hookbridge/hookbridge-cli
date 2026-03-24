@@ -1,4 +1,4 @@
-module github.com/hookbridgehq/hookbridge-cli
+module github.com/hookbridge/hookbridge-cli
 
 go 1.26.1
 

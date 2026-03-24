@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hookbridgehq/hookbridge-cli/internal/config"
+	"github.com/hookbridge/hookbridge-cli/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
