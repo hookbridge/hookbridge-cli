@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hookbridgehq/hookbridge-cli/internal/api"
-	"github.com/hookbridgehq/hookbridge-cli/internal/forwarder"
+	"github.com/hookbridge/hookbridge-cli/internal/api"
+	"github.com/hookbridge/hookbridge-cli/internal/forwarder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

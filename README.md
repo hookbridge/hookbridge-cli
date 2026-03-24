@@ -19,48 +19,54 @@ No inbound ports are required — the CLI connects outbound to HookBridge over H
 
 ## Installation
 
+### Homebrew (macOS / Linux)
+
+```bash
+brew install hookbridge/tap/hb
+```
+
 ### Download a Binary
 
-Download the latest release from [GitHub Releases](https://github.com/hookbridgehq/hookbridge-cli/releases) for your platform.
+Download the latest release from [GitHub Releases](https://github.com/hookbridge/hookbridge-cli/releases) for your platform.
 
 **macOS (Apple Silicon):**
 
 ```bash
-curl -L https://github.com/hookbridgehq/hookbridge-cli/releases/latest/download/hb_latest_darwin_arm64.tar.gz | tar xz
+curl -L https://github.com/hookbridge/hookbridge-cli/releases/download/v1.0.2/hb_v1.0.2_darwin_arm64.tar.gz | tar xz
 sudo mv hb /usr/local/bin/
 ```
 
 **macOS (Intel):**
 
 ```bash
-curl -L https://github.com/hookbridgehq/hookbridge-cli/releases/latest/download/hb_latest_darwin_amd64.tar.gz | tar xz
+curl -L https://github.com/hookbridge/hookbridge-cli/releases/download/v1.0.2/hb_v1.0.2_darwin_amd64.tar.gz | tar xz
 sudo mv hb /usr/local/bin/
 ```
 
 **Linux (x86_64):**
 
 ```bash
-curl -L https://github.com/hookbridgehq/hookbridge-cli/releases/latest/download/hb_latest_linux_amd64.tar.gz | tar xz
+curl -L https://github.com/hookbridge/hookbridge-cli/releases/download/v1.0.2/hb_v1.0.2_linux_amd64.tar.gz | tar xz
 sudo mv hb /usr/local/bin/
 ```
 
 **Linux (ARM64):**
 
 ```bash
-curl -L https://github.com/hookbridgehq/hookbridge-cli/releases/latest/download/hb_latest_linux_arm64.tar.gz | tar xz
+curl -L https://github.com/hookbridge/hookbridge-cli/releases/download/v1.0.2/hb_v1.0.2_linux_arm64.tar.gz | tar xz
 sudo mv hb /usr/local/bin/
 ```
 
 **Windows (x86_64):**
 
-Download `hb_latest_windows_amd64.zip` from [GitHub Releases](https://github.com/hookbridgehq/hookbridge-cli/releases), extract `hb.exe`, and add it to a directory in your `PATH`. Use Windows Terminal or PowerShell for the best experience — color-coded output is not supported in the legacy Command Prompt.
+Download `hb_v1.0.2_windows_amd64.zip` from [GitHub Releases](https://github.com/hookbridge/hookbridge-cli/releases), extract `hb.exe`, and add it to a directory in your `PATH`. Use Windows Terminal or PowerShell for the best experience — color-coded output is not supported in the legacy Command Prompt.
 
 ### Go Install
 
 If you have Go installed:
 
 ```bash
-go install github.com/hookbridgehq/hookbridge-cli/cmd/hb@latest
+go install github.com/hookbridge/hookbridge-cli/cmd/hb@latest
 ```
 
 ### Verify Installation

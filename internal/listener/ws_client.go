@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/hookbridgehq/hookbridge-cli/internal/api"
+	"github.com/hookbridge/hookbridge-cli/internal/api"
 )
 
 const (
