@@ -1516,6 +1516,93 @@ func TestListen_JSON_DoesNotLeakReceiveURLOnStdout(t *testing.T) {
 	assert.NotContains(t, stdout.String(), "ingest_url")
 }
 
+func TestListen_ForwardFlag_RedactsCredentialsInBanner(t *testing.T) {
+	setupTestHome(t)
+
+	localServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer localServer.Close()
+	forwardURL := strings.Replace(localServer.URL, "http://", "http://user:hunter2@", 1)
+
+	pollSecond := make(chan struct{}, 1)
+	server := listenAPIServer(t, []map[string]any{cliEndpoint()}, nil, nil, pollSecond)
+	defer server.Close()
+
+	require.NoError(t, config.Save(&config.Config{
+		APIKey: "hb_live_key", ProjectID: "proj_1",
+		APIBaseURL: server.URL, StreamURL: server.URL,
+	}))
+
+	var stdout, stderr bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runListenCmdCapturing(ctx, &stdout, &stderr, "listen", "--forward", forwardURL)
+
+	select {
+	case <-pollSecond:
+	case <-time.After(15 * time.Second):
+		cancel()
+		t.Fatal("Timed out waiting for poll")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for listen command to exit")
+	}
+
+	assert.Contains(t, stdout.String(), "Forwarding to")
+	assert.Contains(t, stdout.String(), "REDACTED")
+	assert.NotContains(t, stdout.String(), "hunter2")
+}
+
+func TestListen_JSON_ForwardFlag_RedactsCredentialsInReadyEvent(t *testing.T) {
+	setupTestHome(t)
+
+	localServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer localServer.Close()
+	forwardURL := strings.Replace(localServer.URL, "http://", "http://user:hunter2@", 1)
+
+	pollSecond := make(chan struct{}, 1)
+	server := listenAPIServer(t, []map[string]any{cliEndpoint()}, nil, nil, pollSecond)
+	defer server.Close()
+
+	require.NoError(t, config.Save(&config.Config{
+		APIKey: "hb_live_key", ProjectID: "proj_1",
+		APIBaseURL: server.URL, StreamURL: server.URL,
+	}))
+
+	var stdout, stderr bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runListenCmdCapturing(ctx, &stdout, &stderr, "--json", "listen", "--forward", forwardURL)
+
+	select {
+	case <-pollSecond:
+	case <-time.After(15 * time.Second):
+		cancel()
+		t.Fatal("Timed out waiting for poll")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for listen command to exit")
+	}
+
+	lines := strings.Split(strings.TrimRight(stdout.String(), "\n"), "\n")
+	require.NotEmpty(t, lines)
+
+	var ready map[string]any
+	require.NoError(t, json.Unmarshal([]byte(lines[0]), &ready))
+	forwardTo, _ := ready["forward_to"].(string)
+	assert.Contains(t, forwardTo, "REDACTED")
+	assert.NotContains(t, stdout.String(), "hunter2")
+}
+
 func TestListen_NormalMode_ReadyLineUnchanged(t *testing.T) {
 	setupTestHome(t)
 

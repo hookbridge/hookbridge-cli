@@ -12,6 +12,7 @@ import (
 	"github.com/hookbridge/hookbridge-cli/internal/forwarder"
 	"github.com/hookbridge/hookbridge-cli/internal/listener"
 	"github.com/hookbridge/hookbridge-cli/internal/output"
+	"github.com/hookbridge/hookbridge-cli/internal/redact"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -408,7 +409,7 @@ func listenCmd() *cobra.Command {
 			p.Out("\nWebhook URL: %s\n", endpoint.ReceiveURL)
 			p.Out("\nPaste this URL into your webhook provider's settings.\n")
 			if target != "" {
-				p.Out("Forwarding to %s\n", target)
+				p.Out("Forwarding to %s\n", redact.URL(target))
 			} else {
 				p.Out("Inspect mode — webhooks will be displayed but not forwarded.\n")
 			}
@@ -418,7 +419,7 @@ func listenCmd() *cobra.Command {
 					EndpointID string `json:"endpoint_id"`
 					ForwardTo  string `json:"forward_to"`
 				}
-				if err := p.Emit(readyEvent{Event: "ready", EndpointID: endpoint.ID, ForwardTo: target}); err != nil {
+				if err := p.Emit(readyEvent{Event: "ready", EndpointID: endpoint.ID, ForwardTo: redact.URL(target)}); err != nil {
 					return err
 				}
 			} else {

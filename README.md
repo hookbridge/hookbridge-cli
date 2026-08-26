@@ -245,7 +245,7 @@ A normal session — ready, one successfully forwarded webhook, shutdown:
 A failed forward (e.g. the local server isn't running) looks like this instead — `forwarded` is `false`, and `status_code`/`latency_ms` are replaced by `error`:
 
 ```
-{"event":"webhook","id":"01a002d3-a839-7c31-a61d-cf00f68890c7","content_type":"application/json","size_bytes":56,"received_at":"2026-08-15T00:30:21.050323773Z","forwarded":false,"error":"connection refused or timeout: Post \"http://localhost:45999\": dial tcp [::1]:45999: connect: connection refused"}
+{"event":"webhook","id":"01a002d3-a839-7c31-a61d-cf00f68890c7","content_type":"application/json","size_bytes":56,"received_at":"2026-08-15T00:30:21.050323773Z","forwarded":false,"error":"connection refused or timeout: Post: dial tcp [::1]:45999: connect: connection refused"}
 ```
 
 Diagnostics (connection status, errors) go to stderr, also as NDJSON:
@@ -263,7 +263,7 @@ Full field reference — every key each event can emit:
 |---|---|---|
 | `event` | string | Always `"ready"` |
 | `endpoint_id` | string | ID of the endpoint being listened on |
-| `forward_to` | string | The `--forward` target URL, emitted verbatim — or `""` when `--no-forward` is used. See [Security](#security) if that URL might contain credentials |
+| `forward_to` | string | The `--forward` target with URL credentials removed — or `""` when `--no-forward` is used. **Not a faithful copy of the configured URL**: everything from the scheme up to the last `@` is replaced with `REDACTED`, so a target containing an `@` anywhere, including in a path or query, is rewritten. Do not parse this field or use it to reconstruct the forwarding destination. See [Security](#security) |
 
 **`webhook`** — emitted once per received webhook.
 
@@ -277,7 +277,7 @@ Full field reference — every key each event can emit:
 | `forwarded` | boolean | Whether the webhook was forwarded to the local server and got a response |
 | `status_code` | number | HTTP status code from the local server. Present only when `forwarded` is `true` |
 | `latency_ms` | number | Forward round-trip time in milliseconds. Present only when `forwarded` is `true`. `0` is a real sub-millisecond forward, not a missing value |
-| `error` | string | Present only when a forward was attempted and failed (e.g. connection refused, timeout). Contains the underlying error text, which embeds the forward target URL — see [Security](#security) |
+| `error` | string | Present only when a forward was attempted and failed (e.g. connection refused, timeout). Contains the underlying error text with the target URL removed entirely, so it names the failure but not the destination — the target is already reported once in the `ready` event's `forward_to`. See [Security](#security) |
 
 Headers and bodies are never included in the `webhook` event — payloads can carry customer secrets, and stdout is the machine stream. `--verbose` has no effect under `--json`.
 
@@ -435,7 +435,11 @@ Webhooks that arrive while the CLI is offline are stored by HookBridge and deliv
 - **Credentials stored locally** — your API key is saved with restricted file permissions (`0600`).
 - **TLS everywhere** — all communication between the CLI and HookBridge uses TLS encryption.
 - **Receive URLs are credentials** — each endpoint's receive URL embeds a plaintext 32-character secret in its path. Treat it like a password: mask it in CI logs and never commit it to source control. This is also why `--json` output for `hb endpoints` (list) and `hb listen` deliberately omits it.
-- **`--forward` targets are echoed back, not masked** — under `--json`, the `ready` event's `forward_to` field always includes your `--forward` URL verbatim, and a failed forward's `webhook` event `error` field includes it too (there, a userinfo password is masked — `user:pass@host` becomes `user:***@host` — but a query-string secret isn't). A plain `--port`/localhost target, the default, carries nothing sensitive, so this only matters if you put credentials in the URL yourself. Prefer keeping `--forward` to a plain host and let your local receiver hold any secret.
+- **`--forward` targets are redacted in output** — the CLI never prints your `--forward` URL back to you unchanged, but the two surfaces work differently:
+  - The startup banner and the `ready` event's `forward_to` keep the scheme and replace everything up to the last `@` with `REDACTED`, so `https://user:pass@host/hook` renders as `https://REDACTED@host/hook`. This is deliberately blunt: it removes a username as well as a password, since a username is often a token itself, and it rewrites a target that merely has an `@` in its path or query. **A secret in the path or query string is not removed** — nothing distinguishes it from an ordinary parameter.
+  - A failed forward's `error` field drops the target URL entirely — no scheme, no placeholder, no path or query. It names the failure, not the destination. When the target looks malformed, the error may also carry a fixed hint noting that special characters may need percent-encoding; the hint is a constant and never contains any part of the URL.
+
+  Treat `forward_to` as a human-readable label rather than the configured URL: do not parse it or rely on it to reconstruct the destination. Prefer keeping `--forward` to a plain host and let your local receiver hold any secret.
 
 ## Troubleshooting
 
