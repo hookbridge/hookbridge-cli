@@ -404,10 +404,14 @@ func listenCmd() *cobra.Command {
 			}
 
 			// Print startup banner
-			p.Out("\nHookBridge CLI v%s\n", Version)
+			p.Out("\nHookBridge CLI %s\n", Version)
 			p.Out("Endpoint: %s (%s)\n", endpoint.Name, endpoint.ID)
-			p.Out("\nWebhook URL: %s\n", endpoint.ReceiveURL)
-			p.Out("\nPaste this URL into your webhook provider's settings.\n")
+			if endpoint.ReceiveURL != "" {
+				p.Out("\nWebhook URL: %s\n", endpoint.ReceiveURL)
+				p.Out("\nPaste this URL into your webhook provider's settings.\n")
+			} else {
+				p.Out("\nWebhook URL: not shown — HookBridge returns it only when the endpoint is created.\n")
+			}
 			if target != "" {
 				p.Out("Forwarding to %s\n", redact.URL(target))
 			} else {
