@@ -1637,6 +1637,161 @@ func TestListen_NormalMode_ReadyLineUnchanged(t *testing.T) {
 	assert.Contains(t, stdout.String(), "Webhook URL: https://receive.hookbridge.io/v1/webhooks/receive/ie_1/sk_abc")
 }
 
+func TestListen_Banner_VersionTag_PrintsSingleV(t *testing.T) {
+	setupTestHome(t)
+
+	original := Version
+	Version = "v1.1.2"
+	t.Cleanup(func() { Version = original })
+
+	pollSecond := make(chan struct{}, 1)
+	server := listenAPIServer(t, []map[string]any{cliEndpoint()}, nil, nil, pollSecond)
+	defer server.Close()
+
+	require.NoError(t, config.Save(&config.Config{
+		APIKey: "hb_live_key", ProjectID: "proj_1",
+		APIBaseURL: server.URL, StreamURL: server.URL,
+	}))
+
+	var stdout, stderr bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runListenCmdCapturing(ctx, &stdout, &stderr, "listen", "--no-forward")
+
+	select {
+	case <-pollSecond:
+	case <-time.After(15 * time.Second):
+		cancel()
+		t.Fatal("Timed out waiting for poll")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for listen command to exit")
+	}
+
+	assert.Contains(t, stdout.String(), "HookBridge CLI v1.1.2")
+	assert.NotContains(t, stdout.String(), "vv")
+}
+
+func TestListen_Banner_DevVersion_PrintsDev(t *testing.T) {
+	setupTestHome(t)
+
+	original := Version
+	Version = "dev"
+	t.Cleanup(func() { Version = original })
+
+	pollSecond := make(chan struct{}, 1)
+	server := listenAPIServer(t, []map[string]any{cliEndpoint()}, nil, nil, pollSecond)
+	defer server.Close()
+
+	require.NoError(t, config.Save(&config.Config{
+		APIKey: "hb_live_key", ProjectID: "proj_1",
+		APIBaseURL: server.URL, StreamURL: server.URL,
+	}))
+
+	var stdout, stderr bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runListenCmdCapturing(ctx, &stdout, &stderr, "listen", "--no-forward")
+
+	select {
+	case <-pollSecond:
+	case <-time.After(15 * time.Second):
+		cancel()
+		t.Fatal("Timed out waiting for poll")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for listen command to exit")
+	}
+
+	assert.Contains(t, stdout.String(), "HookBridge CLI dev")
+}
+
+func TestListen_ReusedEndpoint_NoReceiveURL_OmitsBlankURLAndPasteLine(t *testing.T) {
+	setupTestHome(t)
+
+	reusedEndpoint := map[string]any{
+		"id": "ie_1", "name": "CLI EP", "mode": "cli", "active": true,
+	}
+
+	pollSecond := make(chan struct{}, 1)
+	server := listenAPIServer(t, []map[string]any{reusedEndpoint}, nil, nil, pollSecond)
+	defer server.Close()
+
+	require.NoError(t, config.Save(&config.Config{
+		APIKey: "hb_live_key", ProjectID: "proj_1",
+		APIBaseURL: server.URL, StreamURL: server.URL,
+	}))
+
+	var stdout, stderr bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runListenCmdCapturing(ctx, &stdout, &stderr, "listen", "--no-forward")
+
+	select {
+	case <-pollSecond:
+	case <-time.After(15 * time.Second):
+		cancel()
+		t.Fatal("Timed out waiting for poll")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for listen command to exit")
+	}
+
+	out := stdout.String()
+	assert.NotContains(t, out, "Webhook URL: \n")
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "Webhook URL:") {
+			assert.NotEqual(t, "Webhook URL:", strings.TrimSpace(line), "Webhook URL line must not be blank")
+		}
+	}
+	assert.NotContains(t, out, "Paste this URL")
+	assert.Contains(t, out, "Webhook URL: not shown — HookBridge returns it only when the endpoint is created.")
+}
+
+func TestListen_CreatedEndpoint_ShowsURLAndPasteLine(t *testing.T) {
+	setupTestHome(t)
+
+	createDone := make(chan struct{}, 1)
+	pollSecond := make(chan struct{}, 1)
+	server := listenAPIServer(t, nil, nil, createDone, pollSecond)
+	defer server.Close()
+
+	require.NoError(t, config.Save(&config.Config{
+		APIKey: "hb_live_key", ProjectID: "proj_1",
+		APIBaseURL: server.URL, StreamURL: server.URL,
+	}))
+
+	var stdout, stderr bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	done := runListenCmdCapturing(ctx, &stdout, &stderr, "listen", "--no-forward")
+
+	select {
+	case <-pollSecond:
+	case <-time.After(15 * time.Second):
+		cancel()
+		t.Fatal("Timed out waiting for poll")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for listen command to exit")
+	}
+
+	assert.Contains(t, stdout.String(), "Webhook URL: https://receive.hookbridge.io/v1/webhooks/receive/ie_created/sk_abc")
+	assert.Contains(t, stdout.String(), "Paste this URL into your webhook provider's settings.")
+}
+
 // --- --no-color Flag Tests ---
 
 func TestListen_ForwardMode_TTY_ColorsWithoutNoColorFlag(t *testing.T) {
