@@ -154,6 +154,7 @@ func loginCmd() *cobra.Command {
 			if existing != nil {
 				cfg.APIBaseURL = existing.APIBaseURL
 				cfg.StreamURL = existing.StreamURL
+				cfg.SendURL = existing.SendURL
 			}
 
 			if err := config.Save(cfg); err != nil {

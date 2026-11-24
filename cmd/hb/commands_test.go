@@ -85,6 +85,35 @@ func TestLogin_ValidKey_StoresCredentials(t *testing.T) {
 	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
 }
 
+func TestLogin_PreservesConfiguredURLs(t *testing.T) {
+	setupTestHome(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(projectResponse("proj_123", "My Project"))
+	}))
+	defer server.Close()
+
+	require.NoError(t, config.Save(&config.Config{
+		APIKey:     "hb_live_oldkey",
+		APIBaseURL: server.URL,
+		StreamURL:  "wss://stream.example.test",
+		SendURL:    "https://send.example.test",
+	}))
+
+	cmd := rootCmd()
+	cmd.SetOut(new(bytes.Buffer))
+	cmd.SetArgs([]string{"login", "--api-key", "hb_live_newkey"})
+	require.NoError(t, cmd.Execute())
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "hb_live_newkey", cfg.APIKey)
+	assert.Equal(t, server.URL, cfg.APIBaseURL)
+	assert.Equal(t, "wss://stream.example.test", cfg.StreamURL)
+	assert.Equal(t, "https://send.example.test", cfg.SendURL)
+}
+
 func TestLogin_InvalidKey_ReturnsError(t *testing.T) {
 	setupTestHome(t)
 
