@@ -64,6 +64,9 @@ func rootCmd() *cobra.Command {
 	cmd.AddCommand(logoutCmd())
 	cmd.AddCommand(endpointsCmd())
 	cmd.AddCommand(listenCmd())
+	cmd.AddCommand(eventTypesCmd())
+	cmd.AddCommand(sendCmd())
+	cmd.AddCommand(eventsCmd())
 
 	return cmd
 }
@@ -151,6 +154,7 @@ func loginCmd() *cobra.Command {
 			if existing != nil {
 				cfg.APIBaseURL = existing.APIBaseURL
 				cfg.StreamURL = existing.StreamURL
+				cfg.SendURL = existing.SendURL
 			}
 
 			if err := config.Save(cfg); err != nil {
@@ -327,6 +331,8 @@ func endpointsCmd() *cobra.Command {
 	}
 	deleteCmd.Flags().BoolP("force", "f", false, "Skip the confirmation prompt")
 	cmd.AddCommand(deleteCmd)
+	cmd.AddCommand(endpointRecoverCmd())
+	cmd.AddCommand(endpointTestCmd())
 
 	return cmd
 }

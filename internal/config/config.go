@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	DefaultAPIBaseURL    = "https://api.hookbridge.io"
-	DefaultStreamURL     = "wss://stream.hookbridge.io"
-	configDir            = ".hookbridge"
-	configFile           = "config.json"
+	DefaultAPIBaseURL = "https://api.hookbridge.io"
+	DefaultStreamURL  = "wss://stream.hookbridge.io"
+	DefaultSendURL    = "https://send.hookbridge.io"
+	configDir         = ".hookbridge"
+	configFile        = "config.json"
 )
 
 // Config holds the CLI credentials and settings.
@@ -20,6 +21,7 @@ type Config struct {
 	ProjectID  string `json:"project_id"`
 	APIBaseURL string `json:"api_base_url,omitempty"`
 	StreamURL  string `json:"stream_url,omitempty"`
+	SendURL    string `json:"send_url,omitempty"`
 }
 
 // Path returns the full path to the config file.
@@ -132,4 +134,21 @@ func (c *Config) Stream() string {
 		return c.StreamURL
 	}
 	return DefaultStreamURL
+}
+
+// SendBase returns the send-service URL. Precedence: HB_SEND_URL env var > config
+// file > the API base when that has been customised (single-host or local setups)
+// > default. Following a custom API base keeps a test or local key from being
+// posted to the production send host.
+func (c *Config) SendBase() string {
+	if v := os.Getenv("HB_SEND_URL"); v != "" {
+		return v
+	}
+	if c.SendURL != "" {
+		return c.SendURL
+	}
+	if base := c.APIBase(); base != DefaultAPIBaseURL {
+		return base
+	}
+	return DefaultSendURL
 }
