@@ -531,7 +531,7 @@ time window, or check on a job with --job. Takes an outbound endpoint ID
 				}
 				p.Out("Job:      %s\n", safeText(job.RecoverJobID))
 				p.Out("Status:   %s\n", safeText(job.Status))
-				p.Out("Created: %d\n", job.CreatedCount)
+				p.Out("Created:  %d\n", job.CreatedCount)
 				p.Out("Requeued: %d\n", job.RequeuedCount)
 				if job.Since != "" {
 					p.Out("Since:    %s\n", safeText(job.Since))

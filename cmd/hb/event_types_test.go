@@ -615,7 +615,7 @@ func TestEndpointsRecover_Status(t *testing.T) {
 	assert.Equal(t, "GET", c.method)
 	assert.Equal(t, "/v1/endpoints/ep_1/recover/job1", c.path)
 	assert.Contains(t, out, "done")
-	assert.Contains(t, out, "Created: 4")
+	assert.Contains(t, out, "Created:  4")
 	assert.Contains(t, out, "Requeued: 2")
 }
 
