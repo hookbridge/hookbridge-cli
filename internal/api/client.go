@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/hookbridge/hookbridge-cli/internal/termsafe"
 )
 
 // APIError is returned when the API responds with a non-2xx status.
@@ -20,7 +22,7 @@ type APIError struct {
 
 func (e *APIError) Error() string {
 	if e.Message != "" {
-		return fmt.Sprintf("API error (%s): %s", e.Code, e.Message)
+		return fmt.Sprintf("API error (%s): %s", termsafe.Clean(e.Code), termsafe.Clean(e.Message))
 	}
 	return fmt.Sprintf("API error: HTTP %d", e.StatusCode)
 }
@@ -28,6 +30,7 @@ func (e *APIError) Error() string {
 // Client is an HTTP client for the HookBridge API.
 type Client struct {
 	baseURL    string
+	sendURL    string
 	apiKey     string
 	httpClient *http.Client
 }
@@ -164,7 +167,24 @@ func (c *Client) DeleteInboundEndpoint(id string) error {
 	return err
 }
 
+func parseAPIError(status int, body []byte) *APIError {
+	var parsed struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &parsed) == nil && parsed.Error.Message != "" {
+		return &APIError{StatusCode: status, Code: parsed.Error.Code, Message: parsed.Error.Message}
+	}
+	return nil
+}
+
 func (c *Client) doJSON(method, path string, body any, result any) error {
+	return c.doJSONAt(c.baseURL, method, path, body, result)
+}
+
+func (c *Client) doJSONAt(baseURL, method, path string, body any, result any) error {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -174,7 +194,7 @@ func (c *Client) doJSON(method, path string, body any, result any) error {
 		bodyReader = bytes.NewReader(data)
 	}
 
-	req, err := http.NewRequest(method, c.baseURL+path, bodyReader)
+	req, err := http.NewRequest(method, baseURL+path, bodyReader)
 	if err != nil {
 		return fmt.Errorf("could not create request: %w", err)
 	}
@@ -198,20 +218,17 @@ func (c *Client) doJSON(method, path string, body any, result any) error {
 	case http.StatusUnauthorized:
 		return fmt.Errorf("invalid API key — run 'hb login' to re-authenticate")
 	case http.StatusTooManyRequests:
+		if apiErr := parseAPIError(resp.StatusCode, respBody); apiErr != nil {
+			return apiErr
+		}
 		return fmt.Errorf("rate limited — please wait and try again")
 	case http.StatusForbidden:
 		return fmt.Errorf("access denied — check your API key permissions")
 	}
 
 	if resp.StatusCode >= 400 {
-		var apiErr struct {
-			Error struct {
-				Code    string `json:"code"`
-				Message string `json:"message"`
-			} `json:"error"`
-		}
-		if json.Unmarshal(respBody, &apiErr) == nil && apiErr.Error.Message != "" {
-			return &APIError{StatusCode: resp.StatusCode, Code: apiErr.Error.Code, Message: apiErr.Error.Message}
+		if apiErr := parseAPIError(resp.StatusCode, respBody); apiErr != nil {
+			return apiErr
 		}
 		return &APIError{StatusCode: resp.StatusCode}
 	}

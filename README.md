@@ -163,6 +163,10 @@ These are persistent flags on the root `hb` command — valid on every subcomman
   | `hb endpoints` | JSON array, one line |
   | `hb endpoints create` | `{"id":"...","receive_url":"..."}` |
   | `hb endpoints delete` | `{"id":"...","deleted":true}` |
+  | `hb event-types list` / `hb events list` | `{"data":[...],"next_cursor":"..."}` |
+  | `hb event-types get` / `create` / `archive` | the event type object |
+  | `hb send` | `{"event_id":...,"status":...,"message_id":...}` |
+  | `hb endpoints recover` / `hb endpoints test` | the job / test-message object |
   | `hb listen` | NDJSON event stream |
   | `hb login` | *nothing* |
   | `hb logout` | *nothing* |
@@ -383,6 +387,46 @@ Error: inbound endpoint "01a002bd-d4ce-710b-b817-a757e78d0a16" not found — it 
 {"id":"01a002bd-d4ce-710b-b817-a757e78d0a16","deleted":true}
 ```
 
+### Event types
+
+These commands need the Event Types feature enabled on your project. If it is off, they fail with `event types are not enabled for this project`. Names, ids and cursors are URL-escaped for you.
+
+```bash
+hb event-types list [--group G] [--prefix P] [--include-archived] [--limit N] [--cursor C]
+hb event-types get order.created
+hb event-types create order.created --description "Order placed" --group orders \
+  --schema-file schema.json --sample-file sample.json [--deprecated]
+hb event-types archive order.created [--force]
+```
+
+`--schema-file` and `--sample-file` must hold valid JSON; they are checked before anything is sent. `archive` asks for confirmation on a terminal unless you pass `--force`. Archiving keeps past events and can be undone from the API.
+
+```bash
+hb send --type order.created --data '{"order_id":"ord_1"}'
+hb send --type order.created --endpoint ep_... --data-file payload.json --idempotency-key order-1
+echo '{"a":1}' | hb send --type order.created --data -
+hb send --endpoint ep_... --data '{"a":1}'
+hb events list [--type T] [--since 2026-01-01T00:00:00Z] [--until ...] [--limit N] [--cursor C]
+```
+
+- `hb send` needs `--type`, `--endpoint`, or both, and a JSON object payload from `--data`, `--data-file`, or stdin (`--data -`). With `--type` and no `--endpoint` the event fans out to every subscribed endpoint. A project over its event type limit gets `EVENT_TYPE_LIMIT_REACHED`.
+- Sends go to the send service (`https://send.hookbridge.io`). Override it with `HB_SEND_URL` or `send_url` in the config file. If you have set a custom `HB_API_URL` / `api_base_url` but no send URL, sends follow the custom API URL.
+- `--since` / `--until` must be RFC3339 timestamps.
+- List commands print a `--cursor` hint when there is another page.
+
+#### Outbound endpoint commands
+
+`hb endpoints recover` and `hb endpoints test` take an **outbound** endpoint ID (`ep_...`), not an inbound CLI endpoint.
+
+```bash
+hb endpoints recover ep_... --since 2026-01-01T00:00:00Z [--until 2026-01-02T00:00:00Z]
+hb endpoints recover ep_... --job <job-id>
+hb endpoints test ep_... --type order.created [--data '{"a":1}' | --data-file payload.json]
+```
+
+- `recover` starts a job that re-delivers the typed events the endpoint missed and prints its job id; `--job` checks the status and counts. Only one job can run per endpoint (`RECOVER_JOB_ACTIVE`).
+- `test` sends one message of an existing event type, using its sample payload unless you pass your own. Limited to 10 per minute per endpoint.
+
 ### `hb version`
 
 Print the installed CLI version.
@@ -398,6 +442,7 @@ hb version
 | `HB_API_KEY` | Override the stored API key |
 | `HB_API_URL` | Override the API base URL |
 | `HB_STREAM_URL` | Override the WebSocket stream URL |
+| `HB_SEND_URL` | Override the send service URL used by `hb send` |
 | `NO_COLOR` | Disable ANSI colour output when set to a non-empty value |
 
 Environment variables take precedence over values in the config file.

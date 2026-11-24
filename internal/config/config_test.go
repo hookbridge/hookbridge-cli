@@ -290,3 +290,28 @@ func TestLoad_UnresolvableHomeWithEnvVarDoesNotWriteToDisk(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, entries)
 }
+
+func TestConfig_SendBase_DefaultsWhenNothingCustom(t *testing.T) {
+	t.Setenv("HB_API_URL", "")
+	t.Setenv("HB_SEND_URL", "")
+	assert.Equal(t, DefaultSendURL, (&Config{}).SendBase())
+}
+
+func TestConfig_SendBase_ConfigFileValue(t *testing.T) {
+	t.Setenv("HB_API_URL", "")
+	t.Setenv("HB_SEND_URL", "")
+	assert.Equal(t, "https://send.custom.example", (&Config{SendURL: "https://send.custom.example"}).SendBase())
+}
+
+func TestConfig_SendBase_EnvOverridesConfigFile(t *testing.T) {
+	t.Setenv("HB_SEND_URL", "https://send.env.example")
+	assert.Equal(t, "https://send.env.example", (&Config{SendURL: "https://send.custom.example"}).SendBase())
+}
+
+func TestConfig_SendBase_FollowsCustomAPIBaseWhenUnset(t *testing.T) {
+	t.Setenv("HB_API_URL", "")
+	t.Setenv("HB_SEND_URL", "")
+	assert.Equal(t, "http://localhost:8080", (&Config{APIBaseURL: "http://localhost:8080"}).SendBase())
+	t.Setenv("HB_API_URL", "http://localhost:9090")
+	assert.Equal(t, "http://localhost:9090", (&Config{}).SendBase())
+}

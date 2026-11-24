@@ -64,6 +64,9 @@ func rootCmd() *cobra.Command {
 	cmd.AddCommand(logoutCmd())
 	cmd.AddCommand(endpointsCmd())
 	cmd.AddCommand(listenCmd())
+	cmd.AddCommand(eventTypesCmd())
+	cmd.AddCommand(sendCmd())
+	cmd.AddCommand(eventsCmd())
 
 	return cmd
 }
@@ -327,6 +330,8 @@ func endpointsCmd() *cobra.Command {
 	}
 	deleteCmd.Flags().BoolP("force", "f", false, "Skip the confirmation prompt")
 	cmd.AddCommand(deleteCmd)
+	cmd.AddCommand(endpointRecoverCmd())
+	cmd.AddCommand(endpointTestCmd())
 
 	return cmd
 }

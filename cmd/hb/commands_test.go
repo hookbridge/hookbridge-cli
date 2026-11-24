@@ -26,6 +26,9 @@ func setupTestHome(t *testing.T) string {
 	t.Helper()
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
+	t.Setenv("HB_API_URL", "")
+	t.Setenv("HB_SEND_URL", "")
+	t.Setenv("HB_API_KEY", "")
 	return tmpDir
 }
 

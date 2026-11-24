@@ -71,7 +71,8 @@ func TestClient_GetProject_RateLimited(t *testing.T) {
 	client := NewClient(server.URL, "hb_live_key")
 	_, err := client.GetProject()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "rate limited")
+	assert.Contains(t, err.Error(), "RATE_LIMITED")
+	assert.Contains(t, err.Error(), "Too many requests")
 }
 
 func TestClient_ListInboundEndpoints_Success(t *testing.T) {
@@ -113,10 +114,10 @@ func TestClient_CreateInboundEndpoint_Success(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]any{
 			"data": map[string]any{
-				"id":          "ie_new",
-				"name":        "Test Endpoint",
-				"mode":        "cli",
-				"active":      true,
+				"id":         "ie_new",
+				"name":       "Test Endpoint",
+				"mode":       "cli",
+				"active":     true,
 				"ingest_url": "https://receive.hookbridge.io/v1/webhooks/receive/ie_new/secret_new",
 			},
 		})
